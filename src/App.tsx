@@ -143,7 +143,6 @@ export default function App() {
       <div className="absolute inset-0 pointer-events-none">
         <div className="pointer-events-auto">
           <CharacterCard />
-          <StatsPanel />
           <QuestList />
           <Wishlist />
           <div className="absolute top-4 right-4 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3 sm:max-w-none">
@@ -187,6 +186,8 @@ export default function App() {
                 </p>
               </div>
             )}
+
+            <StatsPanel />
           </div>
         </div>
       </div>

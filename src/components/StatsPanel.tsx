@@ -35,12 +35,11 @@ export default function StatsPanel() {
 
   return (
     <>
-      <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
-        <motion.div 
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/50 dark:border-slate-700 w-72"
-        >
+      <motion.div 
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/50 dark:border-slate-700 w-72"
+      >
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
               <BarChart2 className="text-blue-500" size={20} /> Life Stats
@@ -80,7 +79,6 @@ export default function StatsPanel() {
             })}
           </div>
         </motion.div>
-      </div>
 
       <SkillsModal isOpen={isSkillsOpen} onClose={() => setIsSkillsOpen(false)} />
     </>
