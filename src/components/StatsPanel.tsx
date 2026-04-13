@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameStore, getLevelTitle } from '../store';
 import { motion } from 'framer-motion';
-import { Dumbbell, BookOpen, Plane, ChefHat, Brain, BarChart2, ChevronRight, Moon, Sun, Palette, Smartphone, Hammer } from 'lucide-react';
+import { Dumbbell, BookOpen, Plane, ChefHat, Brain, BarChart2, ChevronRight, Palette, Smartphone, Hammer } from 'lucide-react';
 import SkillsModal from './SkillsModal';
 
 const statIcons: Record<string, React.ReactNode> = {
@@ -29,8 +29,6 @@ const statColors: Record<string, string> = {
 export default function StatsPanel() {
   const stats = useGameStore(state => state.stats);
   const skills = useGameStore(state => state.skills);
-  const theme = useGameStore(state => state.theme);
-  const toggleTheme = useGameStore(state => state.toggleTheme);
   const [isSkillsOpen, setIsSkillsOpen] = useState(false);
 
   const activeCategories = Array.from(new Set(skills.map(s => s.category)));
@@ -38,13 +36,6 @@ export default function StatsPanel() {
   return (
     <>
       <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
-        <button 
-          onClick={toggleTheme}
-          className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-3 rounded-full shadow-lg border border-white/50 dark:border-slate-700 text-gray-700 dark:text-gray-300 hover:scale-105 transition-transform"
-        >
-          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-
         <motion.div 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
