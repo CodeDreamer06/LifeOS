@@ -2,10 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import Hands from "./Hands";
-import {
-  FIRST_PERSON_DEFAULTS,
-  ROOM_WORLD_BOUNDS,
-} from "./constants";
+import { FIRST_PERSON_DEFAULTS, ROOM_WORLD_BOUNDS } from "./constants";
 import type { FirstPersonControllerProps } from "./types";
 
 type KeyState = {
@@ -37,8 +34,9 @@ export default function FirstPersonController({
   const yawRef = useRef(0);
   const pitchRef = useRef(0);
   const velocityRef = useRef(new THREE.Vector3());
-  const directionRef = useRef(new THREE.Vector3());
-  const sidewaysRef = useRef(new THREE.Vector3());
+  const desiredVelocityRef = useRef(new THREE.Vector3());
+  const forwardRef = useRef(new THREE.Vector3());
+  const rightRef = useRef(new THREE.Vector3());
   const keysRef = useRef<KeyState>({
     forward: false,
     backward: false,
@@ -51,25 +49,47 @@ export default function FirstPersonController({
   const [isWalking, setIsWalking] = useState(false);
 
   const initialPosition = useMemo(
-    () => new THREE.Vector3(0, height, 8),
+    () => new THREE.Vector3(0, height, 18),
     [height],
   );
 
   useEffect(() => {
     if (!enabled) {
       setIsPointerLocked(false);
+      keysRef.current = {
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        sprint: false,
+      };
+      velocityRef.current.set(0, 0, 0);
+
       if (document.pointerLockElement === gl.domElement) {
         document.exitPointerLock();
       }
       return;
     }
 
-    camera.position.set(initialPosition.x, initialPosition.y, initialPosition.z);
+    camera.position.set(
+      initialPosition.x,
+      initialPosition.y,
+      initialPosition.z,
+    );
     camera.rotation.set(0, 0, 0);
-    yawRef.current = normalizeAngle(Math.PI);
-    pitchRef.current = -0.08;
+    yawRef.current = normalizeAngle(0);
+    pitchRef.current = -0.04;
 
     return () => {
+      keysRef.current = {
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        sprint: false,
+      };
+      velocityRef.current.set(0, 0, 0);
+
       if (document.pointerLockElement === gl.domElement) {
         document.exitPointerLock();
       }
@@ -84,11 +104,13 @@ export default function FirstPersonController({
     const onMouseMove = (event: MouseEvent) => {
       if (!enabled || document.pointerLockElement !== gl.domElement) return;
 
-      yawRef.current = normalizeAngle(yawRef.current - event.movementX * mouseSensitivity);
+      yawRef.current = normalizeAngle(
+        yawRef.current - event.movementX * mouseSensitivity,
+      );
       pitchRef.current = clamp(
         pitchRef.current - event.movementY * mouseSensitivity,
-        -Math.PI / 2 + 0.12,
-        Math.PI / 2 - 0.12,
+        -Math.PI / 2 + 0.18,
+        Math.PI / 2 - 0.18,
       );
     };
 
@@ -148,6 +170,16 @@ export default function FirstPersonController({
       }
     };
 
+    const onWindowBlur = () => {
+      keysRef.current = {
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        sprint: false,
+      };
+    };
+
     const onCanvasClick = () => {
       if (!enabled) return;
       if (document.pointerLockElement !== gl.domElement) {
@@ -159,6 +191,7 @@ export default function FirstPersonController({
     document.addEventListener("mousemove", onMouseMove);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onWindowBlur);
     gl.domElement.addEventListener("click", onCanvasClick);
 
     return () => {
@@ -166,6 +199,7 @@ export default function FirstPersonController({
       document.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onWindowBlur);
       gl.domElement.removeEventListener("click", onCanvasClick);
     };
   }, [enabled, gl.domElement, mouseSensitivity]);
@@ -179,35 +213,38 @@ export default function FirstPersonController({
     camera.rotation.z = 0;
 
     const keys = keysRef.current;
-    const speed = movementSpeed * (keys.sprint ? sprintMultiplier : 1);
+    const maxSpeed = movementSpeed * (keys.sprint ? sprintMultiplier : 1);
 
-    directionRef.current.set(0, 0, 0);
-    sidewaysRef.current.set(0, 0, 0);
+    forwardRef.current
+      .set(-Math.sin(yawRef.current), 0, -Math.cos(yawRef.current))
+      .normalize();
 
-    camera.getWorldDirection(directionRef.current);
-    directionRef.current.y = 0;
-    if (directionRef.current.lengthSq() > 0) {
-      directionRef.current.normalize();
+    rightRef.current
+      .set(Math.cos(yawRef.current), 0, -Math.sin(yawRef.current))
+      .normalize();
+
+    desiredVelocityRef.current.set(0, 0, 0);
+
+    if (keys.forward) desiredVelocityRef.current.add(forwardRef.current);
+    if (keys.backward) desiredVelocityRef.current.sub(forwardRef.current);
+    if (keys.right) desiredVelocityRef.current.add(rightRef.current);
+    if (keys.left) desiredVelocityRef.current.sub(rightRef.current);
+
+    const isMoving = desiredVelocityRef.current.lengthSq() > 0.0001;
+    if (isWalking !== isMoving) {
+      setIsWalking(isMoving);
     }
 
-    sidewaysRef.current.crossVectors(directionRef.current, camera.up).normalize();
-
-    const moveVector = new THREE.Vector3();
-
-    if (keys.forward) moveVector.add(directionRef.current);
-    if (keys.backward) moveVector.sub(directionRef.current);
-    if (keys.left) moveVector.add(sidewaysRef.current);
-    if (keys.right) moveVector.sub(sidewaysRef.current);
-
-    const isMoving = moveVector.lengthSq() > 0.0001;
-    setIsWalking(isMoving);
+    const acceleration = isMoving ? 18 : 12;
 
     if (isMoving) {
-      moveVector.normalize().multiplyScalar(speed);
-      velocityRef.current.lerp(moveVector, Math.min(1, delta * 10));
-    } else {
-      velocityRef.current.lerp(new THREE.Vector3(0, 0, 0), Math.min(1, delta * 8));
+      desiredVelocityRef.current.normalize().multiplyScalar(maxSpeed);
     }
+
+    velocityRef.current.lerp(
+      desiredVelocityRef.current,
+      Math.min(1, acceleration * delta),
+    );
 
     camera.position.x += velocityRef.current.x * delta;
     camera.position.z += velocityRef.current.z * delta;
@@ -220,8 +257,19 @@ export default function FirstPersonController({
   if (!enabled) return null;
 
   return (
-    <group position={camera.position} rotation={camera.rotation}>
-      <Hands visible={enabled} walking={isWalking && isPointerLocked} intensity={1} />
-    </group>
+    <>
+      {!isPointerLocked && (
+        <group position={[0, height + 0.4, 14]}>
+          {/* Intentionally empty world anchor to keep controller mounted cleanly */}
+        </group>
+      )}
+      <group position={camera.position} rotation={camera.rotation}>
+        <Hands
+          visible={enabled}
+          walking={isWalking && isPointerLocked}
+          intensity={1}
+        />
+      </group>
+    </>
   );
 }
